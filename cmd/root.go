@@ -20,8 +20,8 @@ import (
 	"os"
 
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/nadig-google/cluster-director-mcp/install"
 	"github.com/nadig-google/cluster-director-mcp/pkg/config"
+	"github.com/nadig-google/cluster-director-mcp/pkg/install"
 	"github.com/nadig-google/cluster-director-mcp/pkg/tools"
 	"github.com/spf13/cobra"
 )
