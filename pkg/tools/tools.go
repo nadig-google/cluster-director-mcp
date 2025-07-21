@@ -18,7 +18,6 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/nadig-google/cluster-director-mcp/pkg/config"
 	"github.com/nadig-google/cluster-director-mcp/pkg/tools/cluster"
-	cluster_toolkit "github.com/nadig-google/cluster-director-mcp/pkg/tools/cluster-toolkit"
 	"github.com/nadig-google/cluster-director-mcp/pkg/tools/giq"
 	"github.com/nadig-google/cluster-director-mcp/pkg/tools/logging"
 	"github.com/nadig-google/cluster-director-mcp/pkg/tools/recommendation"
@@ -26,7 +25,6 @@ import (
 
 func Install(s *server.MCPServer, c *config.Config) {
 	cluster.Install(s, c)
-	cluster_toolkit.Install(s, c)
 	// cost.Install(s, c)
 	giq.Install(s, c)
 	logging.Install(s, c)
