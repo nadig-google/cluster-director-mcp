@@ -17,6 +17,8 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
 
 	container "cloud.google.com/go/container/apiv1"
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
@@ -67,21 +69,54 @@ func (h *handlers) listClusters(ctx context.Context, request mcp.CallToolRequest
 		location = "-"
 	}
 
-	c, err := container.NewClusterManagerClient(ctx, option.WithUserAgent(h.c.UserAgent()))
+	// Equivalent CURL command:
+	// curl \
+	// -H "Content-Type:application/json" \
+	// -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+	// https://hypercomputecluster.googleapis.com/v1alpha/projects/cloud-hypercomp-dev/locations/us-central1/clusters
+	url := "https://hypercomputecluster.googleapis.com/v1alpha/projects/" + projectID + "locations/" + location + "/clusters"
+
+	print("URL: " + url)
+
+	// Make the GET request
+	resp, err := http.Get(url)
+	if err != nil {
+		mcp.NewToolResultError(fmt.Sprintf("Error fetching URL: %v", err))
+	}
+
+	// Defer the closing of the response body.
+	// This is important to free up network resources.
+	defer resp.Body.Close()
+
+	// Check the status code
+	if resp.StatusCode != http.StatusOK {
+		return mcp.NewToolResultError(fmt.Sprintf("Error status code: %d", resp.StatusCode)), nil
+	}
+
+	// Read the response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		mcp.NewToolResultError(fmt.Sprintf("Error reading response body: %v", err))
+	}
+
+	// Print the response body as a string
+	fmt.Println(string(body))
+
+	//c, err := container.NewClusterManagerClient(ctx, option.WithUserAgent(h.c.UserAgent()))
+	//if err != nil {
+	//	return mcp.NewToolResultError(err.Error()), nil
+	//}
+	//defer c.Close()
+
+	//req := &containerpb.ListClustersRequest{
+	//	Parent: fmt.Sprintf("projects/%s/locations/%s", projectID, location),
+	//}
+	//resp, err := c.ListClusters(ctx, req)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
-	defer c.Close()
 
-	req := &containerpb.ListClustersRequest{
-		Parent: fmt.Sprintf("projects/%s/locations/%s", projectID, location),
-	}
-	resp, err := c.ListClusters(ctx, req)
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-
-	return mcp.NewToolResultText(protojson.Format(resp)), nil
+	return mcp.NewToolResultText(string(body)), nil
 }
 
 func (h *handlers) getCluster(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {

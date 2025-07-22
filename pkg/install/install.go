@@ -34,7 +34,7 @@ func GeminiCLIExtension(baseDir, version, exePath string) error {
 	manifest := map[string]interface{}{
 		"name":            "cluster-director-mcp",
 		"version":         version,
-		"description":     "Enable MCP-compatible AI agents to interact with Google Kubernetes Engine.",
+		"description":     "Enable MCP-compatible AI agents to interact with Cluster Director.",
 		"contextFileName": "GEMINI.md",
 		"mcpServers": map[string]interface{}{
 			"cluster-director": map[string]interface{}{

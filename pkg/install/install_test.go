@@ -49,7 +49,7 @@ func TestGeminiCLIExtension(t *testing.T) {
 	expectedJSON := `{
   "name": "cluster-director-mcp",
   "version": "0.1.0-test",
-  "description": "Enable MCP-compatible AI agents to interact with Google Kubernetes Engine.",
+  "description": "Enable MCP-compatible AI agents to interact with Cluster Director.",
   "contextFileName": "GEMINI.md",
   "mcpServers": {
     "cluster-director": {
