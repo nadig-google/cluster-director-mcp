@@ -37,7 +37,7 @@ func GeminiCLIExtension(baseDir, version, exePath string) error {
 		"description":     "Enable MCP-compatible AI agents to interact with Cluster Director.",
 		"contextFileName": "GEMINI.md",
 		"mcpServers": map[string]interface{}{
-			"cluster-director": map[string]interface{}{
+			"cluster-director-mcp": map[string]interface{}{
 				"command": exePath,
 			},
 		},
