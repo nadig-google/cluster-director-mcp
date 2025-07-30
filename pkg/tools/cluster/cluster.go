@@ -119,6 +119,7 @@ func (h *handlers) listClusters(ctx context.Context, request mcp.CallToolRequest
 		location = "us-central1"
 	}
 
+	writeToLog("-------------------listClusters()-------------------")
 	writeToLog("projectId : " + projectID)
 	writeToLog("location : " + location)
 
@@ -208,13 +209,14 @@ func (h *handlers) getCluster(ctx context.Context, request mcp.CallToolRequest) 
 	if location == "" {
 		location = "us-central1"
 	}
-	clusterName, err := request.RequireString("name")
+	clusterName, err := request.RequireString("clusterName")
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
+	writeToLog("-------------------getCluster()-------------------")
 	writeToLog("projectId : " + projectID)
 	writeToLog("location : " + location)
-	writeToLog("name : " + clusterName)
+	writeToLog("clusterName : " + clusterName)
 
 	// Equivalent CURL command:
 	// curl \
@@ -251,7 +253,7 @@ func (h *handlers) getCluster(ctx context.Context, request mcp.CallToolRequest) 
 		Timeout: 30 * time.Second, // Set a reasonable timeout.
 	}
 
-	writeToLog("\nSending GET request to: %s " + url + "\n")
+	writeToLog("\nSending GET request to: " + url + "\n")
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Fatalf("Failed to send HTTP request: %v", err)
