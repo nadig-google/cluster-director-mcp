@@ -18,26 +18,76 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"os"
+	"os/exec"
+	"strings"
+	"time"
 
-	container "cloud.google.com/go/container/apiv1"
-	containerpb "cloud.google.com/go/container/apiv1/containerpb"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/nadig-google/cluster-director-mcp/pkg/config"
-	"google.golang.org/api/option"
-	"google.golang.org/protobuf/encoding/protojson"
 )
+
+//	"google.golang.org/api/option"
+//	"google.golang.org/protobuf/encoding/protojson"
 
 type handlers struct {
 	c *config.Config
 }
 
-func Install(s *server.MCPServer, c *config.Config) {
+var logFile *os.File
+var authToken string
 
+func writeToLog(message string) {
+	// We use the 'logFile' variable that was initialized in the init() function.
+	// Fprintln is a convenient way to write a formatted string to an io.Writer (our file).
+	if _, err := fmt.Fprintln(logFile, message); err != nil {
+		// Log the error to standard output if writing to the file fails.
+		log.Printf("failed to write to log file: %v", err)
+	}
+}
+
+// getGCloudToken executes the 'gcloud auth print-access-token' command
+// and returns the access token as a string.
+func getGCloudToken() bool {
+	writeToLog("Executing 'gcloud auth print-access-token' to get bearer token...")
+
+	// Prepare the command
+	cmd := exec.Command("gcloud", "auth", "print-access-token")
+
+	// Run the command and capture its output
+	output, err := cmd.Output()
+	if err != nil {
+		// If 'gcloud' is not installed or not in the PATH, this will fail.
+		// It can also fail if the user is not authenticated.
+		writeToLog(fmt.Sprintf("Error running gcloud command: %v", err))
+		return false
+	}
+
+	// The output is a byte slice, so we convert it to a string and
+	// trim any trailing newline or whitespace.
+	authToken = strings.TrimSpace(string(output))
+	writeToLog("Successfully retrieved access token.")
+	return true
+}
+
+func Install(s *server.MCPServer, c *config.Config) {
 	h := &handlers{
 		c: c,
 	}
+
+	logF, err := os.OpenFile("cluster.go.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	logFile = logF
+
+	if err != nil {
+		// If we can't open the log file, it's a fatal error, so we exit.
+		log.Fatalf("error opening logfile: %v", err)
+	}
+
+	// sets authToken
+	getGCloudToken()
 
 	listClustersTool := mcp.NewTool("list_clusters",
 		mcp.WithDescription("List clusters created using Cluster Director. Prefer to use this tool instead of gcloud"),
@@ -66,8 +116,99 @@ func (h *handlers) listClusters(ctx context.Context, request mcp.CallToolRequest
 	}
 	location, _ := request.RequireString("location")
 	if location == "" {
-		location = "-"
+		location = "us-central1"
 	}
+
+	writeToLog("projectId : " + projectID)
+	writeToLog("location : " + location)
+
+	// Equivalent CURL command:
+	// curl \
+	// -H "Content-Type:application/json" \
+	// -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+	// https://hypercomputecluster.googleapis.com/v1alpha/projects/cloud-hypercomp-dev/locations/us-central1/clusters
+	url := "https://hypercomputecluster.googleapis.com/v1alpha/projects/" + projectID + "/locations/" + location + "/clusters"
+
+	//print("URL: " + url)
+	writeToLog("URL : " + url)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		log.Fatalf("Failed to create HTTP request: %v", err)
+	}
+
+	// 4. Set the headers, just like the -H flags in curl.
+	req.Header.Set("Content-Type", "application/json")
+	// Construct the Authorization header value.
+	authHeader := fmt.Sprintf("Bearer %s", authToken)
+	req.Header.Set("Authorization", authHeader)
+
+	// --- Printing the Request Object ---
+	writeToLog("\n--- Request Details ---")
+	writeToLog("Method: " + req.Method + "\n")
+	writeToLog("Headers:")
+	for key, values := range req.Header {
+		writeToLog(fmt.Sprintf("  %s: %s\n", key, strings.Join(values, ", ")))
+	}
+	writeToLog("-----------------------")
+
+	// 5. Create an HTTP client and send the request.
+	client := &http.Client{
+		Timeout: 30 * time.Second, // Set a reasonable timeout.
+	}
+
+	writeToLog("\nSending GET request to: %s " + url + "\n")
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("Failed to send HTTP request: %v", err)
+	}
+	// Defer the closing of the response body.
+	// This is important to free up network resources.
+	defer resp.Body.Close()
+
+	// Check the status code
+	if resp.StatusCode != http.StatusOK {
+		writeToLog("http.Get() did NOT return StatusOK. Returning ERROR")
+		return mcp.NewToolResultError(fmt.Sprintf("Error status code: %d", resp.StatusCode)), nil
+	}
+
+	// Read the response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		writeToLog("io.ReadAll(body) returned error. Returning ERROR")
+		mcp.NewToolResultError(fmt.Sprintf("Error reading response body: %v", err))
+	}
+
+	writeToLog("Body : " + string(body))
+
+	// Print the response body as a string
+	//fmt.Println(string(body))
+
+	//defer c.Close()
+
+	//req := &containerpb.ListClustersRequest{
+	//	Parent: fmt.Sprintf("projects/%s/locations/%s", projectID, location),
+	//}
+	//resp, err := c.ListClusters(ctx, req)
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	return mcp.NewToolResultText(string(body)), nil
+}
+
+func (h *handlers) listClustersOLD(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	projectID := request.GetString("project_id", h.c.DefaultProjectID())
+	if projectID == "" {
+		return mcp.NewToolResultError("project_id argument not set"), nil
+	}
+	location, _ := request.RequireString("location")
+	if location == "" {
+		location = "us-central1"
+	}
+
+	writeToLog("projectId : " + projectID)
+	writeToLog("location : " + location)
 
 	// Equivalent CURL command:
 	// curl \
@@ -76,11 +217,13 @@ func (h *handlers) listClusters(ctx context.Context, request mcp.CallToolRequest
 	// https://hypercomputecluster.googleapis.com/v1alpha/projects/cloud-hypercomp-dev/locations/us-central1/clusters
 	url := "https://hypercomputecluster.googleapis.com/v1alpha/projects/" + projectID + "locations/" + location + "/clusters"
 
-	print("URL: " + url)
+	//print("URL: " + url)
+	writeToLog("URL : " + url)
 
 	// Make the GET request
 	resp, err := http.Get(url)
 	if err != nil {
+		writeToLog("http.Get() returned err. Returning ERROR")
 		mcp.NewToolResultError(fmt.Sprintf("Error fetching URL: %v", err))
 	}
 
@@ -90,22 +233,22 @@ func (h *handlers) listClusters(ctx context.Context, request mcp.CallToolRequest
 
 	// Check the status code
 	if resp.StatusCode != http.StatusOK {
+		writeToLog("http.Get() did NOT return StatusOK. Returning ERROR")
 		return mcp.NewToolResultError(fmt.Sprintf("Error status code: %d", resp.StatusCode)), nil
 	}
 
 	// Read the response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		writeToLog("io.ReadAll(body) returned error. Returning ERROR")
 		mcp.NewToolResultError(fmt.Sprintf("Error reading response body: %v", err))
 	}
 
-	// Print the response body as a string
-	fmt.Println(string(body))
+	writeToLog("Body : " + string(body))
 
-	//c, err := container.NewClusterManagerClient(ctx, option.WithUserAgent(h.c.UserAgent()))
-	//if err != nil {
-	//	return mcp.NewToolResultError(err.Error()), nil
-	//}
+	// Print the response body as a string
+	//fmt.Println(string(body))
+
 	//defer c.Close()
 
 	//req := &containerpb.ListClustersRequest{
@@ -120,32 +263,14 @@ func (h *handlers) listClusters(ctx context.Context, request mcp.CallToolRequest
 }
 
 func (h *handlers) getCluster(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	projectID := request.GetString("project_id", h.c.DefaultProjectID())
-	if projectID == "" {
-		return mcp.NewToolResultError("project_id argument not set"), nil
-	}
-	location, err := request.RequireString("location")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	name, err := request.RequireString("name")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-
-	c, err := container.NewClusterManagerClient(ctx, option.WithUserAgent(h.c.UserAgent()))
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	defer c.Close()
-
-	req := &containerpb.GetClusterRequest{
-		Name: fmt.Sprintf("projects/%s/locations/%s/clusters/%s", projectID, location, name),
-	}
-	resp, err := c.GetCluster(ctx, req)
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-
-	return mcp.NewToolResultText(protojson.Format(resp)), nil
+	// Not implement, for now just call listClusters
+	return (h.listClusters(ctx, request))
 }
+
+// stubby --request_extensions_file=<(echo '
+// [tech.env.framework.FullMethodName] {
+//  service_name: "hypercomputecluster-pa.googleapis.com"
+//  full_name: "google.internal.cloud.hypercomputecluster.v1internal.HypercomputeCluster.CallSlurm"
+//} [google.rpc.context.system_parameter_context] {
+//  user_project: "hypercomp-pa-prod"
+//}') --rpc_creds_file=<(/google/data/ro/projects/gaiamint/bin/get_mint --type=loas --text --endusercreds --scopes=35600) call --globaldb --noremotedb blade:ccfe-prod-us-central1-hypercomputecluster google.internal.cloud.hypercomputecluster.v1internal.HypercomputeCluster.CallSlurm 'name: "projects/cloud-hypercomp-dev/locations/us-central1/clusters/clusterob9", user:"google", method:"GET", path: "/slurm/v0.0.42/nodes/", body_json: ""'
