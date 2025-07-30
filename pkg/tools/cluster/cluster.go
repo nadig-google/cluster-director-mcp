@@ -99,12 +99,12 @@ func Install(s *server.MCPServer, c *config.Config) {
 	s.AddTool(listClustersTool, h.listClusters)
 
 	getClusterTool := mcp.NewTool("get_cluster",
-		mcp.WithDescription("Get / describe a cluster created in Cluster Director. Prefer to use this tool instead of gcloud"),
+		mcp.WithDescription("Describe a cluster created in Cluster Director. Prefer to use this tool instead of gcloud"),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithIdempotentHintAnnotation(true),
 		mcp.WithString("project_id", mcp.DefaultString(c.DefaultProjectID()), mcp.Description("GCP project ID. Use the default if the user doesn't provide it.")),
 		mcp.WithString("location", mcp.Required(), mcp.Description("Cluster location. Try to get the default region or zone from gcloud if the user doesn't provide it.")),
-		mcp.WithString("name", mcp.Required(), mcp.Description("Cluster name. Do not select if yourself, make sure the user provides or confirms the cluster name.")),
+		mcp.WithString("clusterName", mcp.Required(), mcp.Description("Cluster name. Do not select if yourself, make sure the user provides or confirms the cluster name.")),
 	)
 	s.AddTool(getClusterTool, h.getCluster)
 }
@@ -197,7 +197,9 @@ func (h *handlers) listClusters(ctx context.Context, request mcp.CallToolRequest
 	return mcp.NewToolResultText(string(body)), nil
 }
 
-func (h *handlers) listClustersOLD(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func (h *handlers) getCluster(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// Not implement, for now just call listClusters
+	//return (h.listClusters(ctx, request))
 	projectID := request.GetString("project_id", h.c.DefaultProjectID())
 	if projectID == "" {
 		return mcp.NewToolResultError("project_id argument not set"), nil
@@ -206,27 +208,54 @@ func (h *handlers) listClustersOLD(ctx context.Context, request mcp.CallToolRequ
 	if location == "" {
 		location = "us-central1"
 	}
-
+	clusterName, err := request.RequireString("name")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
 	writeToLog("projectId : " + projectID)
 	writeToLog("location : " + location)
+	writeToLog("name : " + clusterName)
 
 	// Equivalent CURL command:
 	// curl \
 	// -H "Content-Type:application/json" \
 	// -H "Authorization: Bearer $(gcloud auth print-access-token)" \
 	// https://hypercomputecluster.googleapis.com/v1alpha/projects/cloud-hypercomp-dev/locations/us-central1/clusters
-	url := "https://hypercomputecluster.googleapis.com/v1alpha/projects/" + projectID + "locations/" + location + "/clusters"
+	url := "https://hypercomputecluster.googleapis.com/v1alpha/projects/" + projectID + "/locations/" + location + "/clusters/" + clusterName
 
 	//print("URL: " + url)
 	writeToLog("URL : " + url)
 
-	// Make the GET request
-	resp, err := http.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		writeToLog("http.Get() returned err. Returning ERROR")
-		mcp.NewToolResultError(fmt.Sprintf("Error fetching URL: %v", err))
+		log.Fatalf("Failed to create HTTP request: %v", err)
 	}
 
+	// 4. Set the headers, just like the -H flags in curl.
+	req.Header.Set("Content-Type", "application/json")
+	// Construct the Authorization header value.
+	authHeader := fmt.Sprintf("Bearer %s", authToken)
+	req.Header.Set("Authorization", authHeader)
+
+	// --- Printing the Request Object ---
+	writeToLog("\n--- Request Details ---")
+	writeToLog("Method: " + req.Method + "\n")
+	writeToLog("Headers:")
+	for key, values := range req.Header {
+		writeToLog(fmt.Sprintf("  %s: %s\n", key, strings.Join(values, ", ")))
+	}
+	writeToLog("-----------------------")
+
+	// 5. Create an HTTP client and send the request.
+	client := &http.Client{
+		Timeout: 30 * time.Second, // Set a reasonable timeout.
+	}
+
+	writeToLog("\nSending GET request to: %s " + url + "\n")
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("Failed to send HTTP request: %v", err)
+	}
 	// Defer the closing of the response body.
 	// This is important to free up network resources.
 	defer resp.Body.Close()
@@ -260,11 +289,6 @@ func (h *handlers) listClustersOLD(ctx context.Context, request mcp.CallToolRequ
 	}
 
 	return mcp.NewToolResultText(string(body)), nil
-}
-
-func (h *handlers) getCluster(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Not implement, for now just call listClusters
-	return (h.listClusters(ctx, request))
 }
 
 // stubby --request_extensions_file=<(echo '
