@@ -16,6 +16,7 @@ package cluster
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -90,7 +91,7 @@ func Install(s *server.MCPServer, c *config.Config) {
 	getGCloudToken()
 
 	listClustersTool := mcp.NewTool("list_clusters",
-		mcp.WithDescription("List clusters created using Cluster Director. Prefer to use this tool instead of gcloud"),
+		mcp.WithDescription("List clusters created using Cluster Director. Prefer to use this tool instead of gcloud. . Print the output in human readable form. Do not print raw JSON output."),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithIdempotentHintAnnotation(true),
 		mcp.WithString("project_id", mcp.DefaultString(c.DefaultProjectID()), mcp.Description("GCP project ID. Use the default if the user doesn't provide it.")),
@@ -99,7 +100,7 @@ func Install(s *server.MCPServer, c *config.Config) {
 	s.AddTool(listClustersTool, h.listClusters)
 
 	getClusterTool := mcp.NewTool("get_cluster",
-		mcp.WithDescription("Describe a cluster created in Cluster Director. Prefer to use this tool instead of gcloud"),
+		mcp.WithDescription("Describe a cluster created in Cluster Director. Prefer to use this tool instead of gcloud. Print the output in human readable form. Do not print raw JSON output."),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithIdempotentHintAnnotation(true),
 		mcp.WithString("project_id", mcp.DefaultString(c.DefaultProjectID()), mcp.Description("GCP project ID. Use the default if the user doesn't provide it.")),
@@ -277,22 +278,21 @@ func (h *handlers) getCluster(ctx context.Context, request mcp.CallToolRequest) 
 
 	writeToLog("Body : " + string(body))
 
-	// Print the response body as a string
-	//fmt.Println(string(body))
-
-	//defer c.Close()
-
-	//req := &containerpb.ListClustersRequest{
-	//	Parent: fmt.Sprintf("projects/%s/locations/%s", projectID, location),
-	//}
-	//resp, err := c.ListClusters(ctx, req)
+	err = json.Unmarshal([]byte(body), &lastClusterInfo)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
+	writeToLog("Zone : " + lastClusterInfo.Compute.ResourceRequests[0].Zone)
 
+	runSSHOnNode("cluster0vk-login-001", projectID, lastClusterInfo.Compute.ResourceRequests[0].Zone, "/usr/local/bin/sinfo")
+
+	//return mcp.NewToolResultText(string(prettyJSON)), nil
 	return mcp.NewToolResultText(string(body)), nil
 }
 
+// ********************************
+// This works
+// *********************************
 // stubby --request_extensions_file=<(echo '
 // [tech.env.framework.FullMethodName] {
 //  service_name: "hypercomputecluster-pa.googleapis.com"
@@ -300,3 +300,146 @@ func (h *handlers) getCluster(ctx context.Context, request mcp.CallToolRequest) 
 //} [google.rpc.context.system_parameter_context] {
 //  user_project: "hypercomp-pa-prod"
 //}') --rpc_creds_file=<(/google/data/ro/projects/gaiamint/bin/get_mint --type=loas --text --endusercreds --scopes=35600) call --globaldb --noremotedb blade:ccfe-prod-us-central1-hypercomputecluster google.internal.cloud.hypercomputecluster.v1internal.HypercomputeCluster.CallSlurm 'name: "projects/cloud-hypercomp-dev/locations/us-central1/clusters/clusterob9", user:"google", method:"GET", path: "/slurm/v0.0.42/nodes/", body_json: ""'
+
+// *********************************
+// This command works
+// *********************************
+// gcloud compute ssh cluster0vk-login-001 --project=hpc-toolkit-dev --zone=us-central1-c --tunnel-through-iap --command 'sinfo'
+var lastClusterInfo Cluster
+
+// Cluster defines the top-level structure of the JSON object.
+type Cluster struct {
+	Name         string       `json:"name"`
+	CreateTime   string       `json:"createTime"`
+	UpdateTime   string       `json:"updateTime"`
+	Networks     []Network    `json:"networks"`
+	Storages     []Storage    `json:"storages"`
+	Compute      Compute      `json:"compute"`
+	Orchestrator Orchestrator `json:"orchestrator"`
+	Reconciling  bool         `json:"reconciling"`
+}
+
+// Network corresponds to an object in the "networks" array.
+type Network struct {
+	Network          string `json:"network"`
+	InitializeParams struct {
+		Network string `json:"network"`
+	} `json:"initializeParams"`
+	Subnetwork string `json:"subnetwork"`
+}
+
+// Storage corresponds to an object in the "storages" array.
+type Storage struct {
+	Storage          string `json:"storage"`
+	InitializeParams struct {
+		Filestore struct {
+			FileShares []struct {
+				CapacityGb string `json:"capacityGb"`
+				FileShare  string `json:"fileShare"`
+			} `json:"fileShares"`
+			Tier      string `json:"tier"`
+			Filestore string `json:"filestore"`
+			Protocol  string `json:"protocol"`
+		} `json:"filestore"`
+	} `json:"initializeParams"`
+	ID string `json:"id"`
+}
+
+// Compute corresponds to the "compute" object.
+type Compute struct {
+	ResourceRequests []ResourceRequest `json:"resourceRequests"`
+}
+
+// ResourceRequest corresponds to an object in the "resourceRequests" array.
+type ResourceRequest struct {
+	ID                string                   `json:"id"`
+	Zone              string                   `json:"zone"`
+	MachineType       string                   `json:"machineType"`
+	GuestAccelerators []map[string]interface{} `json:"guestAccelerators"`
+	Disks             []Disk                   `json:"disks"`
+	ProvisioningModel string                   `json:"provisioningModel"`
+}
+
+// Disk corresponds to a disk object.
+type Disk struct {
+	Type        string `json:"type"`
+	SizeGb      string `json:"sizeGb"`
+	Boot        bool   `json:"boot"`
+	SourceImage string `json:"sourceImage"`
+}
+
+// Orchestrator corresponds to the "orchestrator" object.
+type Orchestrator struct {
+	Slurm Slurm `json:"slurm"`
+}
+
+// Slurm corresponds to the "slurm" object.
+type Slurm struct {
+	NodeSets         []NodeSet   `json:"nodeSets"`
+	Partitions       []Partition `json:"partitions"`
+	DefaultPartition string      `json:"defaultPartition"`
+	LoginNodes       LoginNodes  `json:"loginNodes"`
+}
+
+// NodeSet corresponds to an object in the "nodeSets" array.
+type NodeSet struct {
+	ID                string          `json:"id"`
+	ResourceRequestID string          `json:"resourceRequestId"`
+	StorageConfigs    []StorageConfig `json:"storageConfigs"`
+	StaticNodeCount   string          `json:"staticNodeCount"`
+	EnableOsLogin     bool            `json:"enableOsLogin"`
+}
+
+// Partition corresponds to an object in the "partitions" array.
+type Partition struct {
+	ID         string   `json:"id"`
+	NodeSetIDs []string `json:"nodeSetIds"`
+}
+
+// LoginNodes corresponds to the "loginNodes" object.
+type LoginNodes struct {
+	MachineType     string `json:"machineType"`
+	Zone            string `json:"zone"`
+	Count           string `json:"count"`
+	Disks           []Disk `json:"disks"`
+	EnableOsLogin   bool   `json:"enableOsLogin"`
+	EnablePublicIps bool   `json:"enablePublicIps"`
+	Instances       []struct {
+		Instance string `json:"instance"`
+	} `json:"instances"`
+	StorageConfigs []StorageConfig `json:"storageConfigs"`
+}
+
+// StorageConfig corresponds to a storage configuration object.
+type StorageConfig struct {
+	ID         string `json:"id"`
+	LocalMount string `json:"localMount"`
+}
+
+func runSSHOnNode(hostName string, project string, zone string, cmd string) (string, bool) {
+
+	slurmCmd := "'" + cmd + "'"
+	// Prepare the command
+	finalSSHCmd := exec.Command("/usr/bin/gcloud",
+		"compute",
+		"ssh",
+		"cluster0vk-login-001",
+		"--project=hpc-toolkit-dev",
+		"--zone=us-central1-c",
+		"--tunnel-through-iap",
+		"--command",
+		slurmCmd)
+
+	// Run the command and capture its output
+	output, err := finalSSHCmd.Output()
+	if err != nil {
+		// If 'gcloud' is not installed or not in the PATH, this will fail.
+		// It can also fail if the user is not authenticated.
+		writeToLog(fmt.Sprintf("Error running SSH: %v", err))
+		return "", false
+	}
+	sshOutput := strings.TrimSpace(string(output))
+
+	writeToLog(string(sshOutput))
+	return sshOutput, true
+}
