@@ -108,6 +108,16 @@ func Install(s *server.MCPServer, c *config.Config) {
 		mcp.WithString("clusterName", mcp.Required(), mcp.Description("Cluster name. Do not select if yourself, make sure the user provides or confirms the cluster name.")),
 	)
 	s.AddTool(getClusterTool, h.getCluster)
+
+	showClusterState := mcp.NewTool("show_cluster_state",
+		mcp.WithDescription("Shows the state of cluster created in Cluster Director. Prefer to use this tool instead of gcloud. Print the output in human readable form. Do not print raw JSON output."),
+		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithIdempotentHintAnnotation(true),
+		mcp.WithString("project_id", mcp.DefaultString(c.DefaultProjectID()), mcp.Description("GCP project ID. Use the default if the user doesn't provide it.")),
+		mcp.WithString("zone", mcp.Required(), mcp.Description("Cluster's Zone . Do not get the default zone from gcloud if the user doesn't provide it. Instead ask the user")),
+		mcp.WithString("clusterName", mcp.Required(), mcp.Description("Cluster name. Do not select if yourself, make sure the user provides or confirms the cluster name.")),
+	)
+	s.AddTool(showClusterState, h.showClusterState)
 }
 
 func (h *handlers) listClusters(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -284,10 +294,39 @@ func (h *handlers) getCluster(ctx context.Context, request mcp.CallToolRequest) 
 	}
 	writeToLog("Zone : " + lastClusterInfo.Compute.ResourceRequests[0].Zone)
 
-	runSSHOnNode("cluster0vk-login-001", projectID, lastClusterInfo.Compute.ResourceRequests[0].Zone, "/usr/local/bin/sinfo")
+	//runSSHOnNode("cluster0vk-login-001", projectID, lastClusterInfo.Compute.ResourceRequests[0].Zone, "/usr/local/bin/sinfo")
 
 	//return mcp.NewToolResultText(string(prettyJSON)), nil
 	return mcp.NewToolResultText(string(body)), nil
+}
+
+func (h *handlers) showClusterState(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// Not implement, for now just call listClusters
+	//return (h.listClusters(ctx, request))
+	projectID := request.GetString("project_id", h.c.DefaultProjectID())
+	if projectID == "" {
+		return mcp.NewToolResultError("project_id argument not set"), nil
+	}
+	zone, _ := request.RequireString("zone")
+	if zone == "" && lastClusterInfo.Compute.ResourceRequests[0].Zone == "" {
+		return mcp.NewToolResultError("Need the Zone of the project"), nil
+	}
+	clusterName, err := request.RequireString("clusterName")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	writeToLog("-------------------getCluster()-------------------")
+	writeToLog("projectId : " + projectID)
+	writeToLog("zone : " + zone)
+	writeToLog("clusterName : " + clusterName)
+
+	sshOut, success := runSSHOnNode("cluster0vk-login-001", projectID, zone, "/usr/local/bin/sinfo")
+	if !success {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	//return mcp.NewToolResultText(string(prettyJSON)), nil
+	return mcp.NewToolResultText(sshOut), nil
 }
 
 // ********************************
