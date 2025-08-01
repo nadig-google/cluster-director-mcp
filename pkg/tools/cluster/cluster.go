@@ -46,7 +46,7 @@ func writeToLog(message string) {
 	// Fprintln is a convenient way to write a formatted string to an io.Writer (our file).
 	//if _, err := fmt.Fprintln(logFile, message); err != nil {
 	// Log the error to standard output if writing to the file fails.
-	log.Printf("failed to write to log file: %v", err)
+	log.Printf("failed to write to log file: ")
 	//}
 }
 
