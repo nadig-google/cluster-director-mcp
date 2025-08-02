@@ -18,13 +18,8 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/nadig-google/cluster-director-mcp/pkg/config"
 	"github.com/nadig-google/cluster-director-mcp/pkg/tools/cluster"
-
-	"github.com/nadig-google/cluster-director-mcp/pkg/tools/logging"
-	"github.com/nadig-google/cluster-director-mcp/pkg/tools/recommendation"
 )
 
 func Install(s *server.MCPServer, c *config.Config) {
 	cluster.Install(s, c)
-	logging.Install(s, c)
-	recommendation.Install(s, c)
 }
