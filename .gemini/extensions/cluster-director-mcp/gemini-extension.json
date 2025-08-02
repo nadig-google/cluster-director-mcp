@@ -1,0 +1,11 @@
+{
+  "contextFileName": "GEMINI.md",
+  "description": "Enable MCP-compatible AI agents to interact with Cluster Director.",
+  "mcpServers": {
+    "cluster-director-mcp": {
+      "command": "/usr/local/google/home/nadig/cluster-director-mcp/cluster-director-mcp"
+    }
+  },
+  "name": "cluster-director-mcp",
+  "version": "0.0.1"
+}
