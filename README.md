@@ -1,10 +1,26 @@
 # cluster-director-mcp
-MCP Server for Cluster Director from Google Cloud
+Gemini-CLI compatible MCP Server for the Cluster Director product from Google Cloud
+
 # Cluster Director MCP Server
 
 Enable MCP-compatible AI agents to interact with Cluster Director.
 
 # Installation
+
+0. Install gemini-cli on your Cloud Shell Editor
+    ```sh
+    npm install -g @google/gemini-cli
+    ```
+
+    If the above command does not work, install it as root using the following four commands
+    ```sh
+    sudo -s
+    export PATH=$PATH:/opt/gradle/bin:/opt/maven/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin:/usr/local/node_packages/node_modules/.bin:/usr/local/rvm/bin:/home/nadig/.gems/bin:/usr/local/rvm/bin:/home/nadig/gopath/bin:/google/gopath/bin:/google/flutter/bin:/usr/local/nvm/versions/node/v22.17.1/bin
+
+    npm install -g @google/gemini-cli
+    npm install -g @google/gemini-cli to update
+    ```
+
 
 1.  Install the tool:
 
@@ -19,37 +35,47 @@ Enable MCP-compatible AI agents to interact with Cluster Director.
 2.  Install it as a `gemini-cli` extension:
 
     ```sh
-    cluster-director-mcp install gemini-cli
+    cd cluster-director-mcp
+    go build -o cluster-director-mcp .
+    ./cluster-director-mcp install gemini-cli
     ```
 
     This will create a manifest file in `./.gemini/extensions/cluster-director-mcp` that points to the installed `cluster-director-mcp` binary.
+
+3. Add an MCP extension to get detailed information on cluster director
+
+   if ~/.gemini/settings.json already exists 
+
+   ```sh
+   echo '  ,
+   "mcpServers": {
+     "context7": {
+     "httpUrl": "https://mcp.context7.com/mcp"
+    }
+   }' >> ~/.gemini/settings.json
+   ```
+   If ~/.gemini/settings.json does NOT exist, then run the following commands
+   mkdir ~/.gemini
+   echo '
+   {
+  "selectedAuthType": "cloud-shell",
+  "theme": "Default",
+  "mcpServers": {
+     "context7": {
+     "httpUrl": "https://mcp.context7.com/mcp"
+    }
+  }
+} ' >> ~/.gemini/settings.json
 
 ## Tools
 
 - `create_cluster`: Creates AI optimized Clusters.
 - `list_clusters`: List your clusters created using Cluster Director.
 - `get_cluster`: Get detailed about a single Cluster.
-- `list_recommendations`: List recommendations for your clusters created using Cluster Director.
 
 ## Context 
 
 In addition to the tools above, a lot of value is provided through the bundled context instructions.
 
-## Development
 
-To compile the binary and update the `gemini-cli` extension with your local changes, follow these steps:
-
-1.  Build the binary from the root of the project:
-
-    ```sh
-    go build -o cluster-director-mcp .
-    ```
-
-2.  Run the installation command to update the extension manifest:
-
-    ```sh
-    ./cluster-director-mcp install gemini-cli
-    ```
-
-    This will make `gemini-cli` use your locally compiled binary.
 
