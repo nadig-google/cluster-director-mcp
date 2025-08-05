@@ -19,6 +19,7 @@ Enable MCP-compatible AI agents to interact with Cluster Director.
 
     npm install -g @google/gemini-cli
     npm install -g @google/gemini-cli to update
+    exit
     ```
 
 
@@ -54,18 +55,31 @@ Enable MCP-compatible AI agents to interact with Cluster Director.
     }
    }' >> ~/.gemini/settings.json
    ```
+
    If ~/.gemini/settings.json does NOT exist, then run the following commands
+   ```sh
    mkdir ~/.gemini
    echo '
    {
-  "selectedAuthType": "cloud-shell",
-  "theme": "Default",
-  "mcpServers": {
-     "context7": {
-     "httpUrl": "https://mcp.context7.com/mcp"
+    "selectedAuthType": "cloud-shell",
+    "theme": "Default",
+    "mcpServers": {
+       "context7": {
+         "httpUrl": "https://mcp.context7.com/mcp"
+        }
     }
-  }
-} ' >> ~/.gemini/settings.json
+   } ' >> ~/.gemini/settings.json
+  ```
+
+5. Authenticate yourself (run command and follow instructions - this step requires opening a new browser window)
+   ```sh
+   gcloud auth application-default login
+   ```
+  
+6. Set the default project
+  ```sh
+  gcloud config set project hpc-toolkit-dev
+  ```
 
 ## Tools
 
