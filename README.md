@@ -33,18 +33,18 @@ Enable MCP-compatible AI agents to interact with Cluster Director.
     ```
 
 
-1.  Install the tool:
+1.  Check out from github and build it:
 
     ```sh
     git clone https://github.com/nadig-google/cluster-director-mcp.git
     ```
 
+2.  Install cluster-director-mcp as a `gemini-cli` extension:
+
     The `cluster-director-mcp` binary will be installed in the directory specified by the `GOBIN` environment variable. If `GOBIN` is not set, it defaults to `$GOPATH/bin` and, if `GOPATH` is also not set, it falls back to `$HOME/go/bin`.
 
     You can find the exact location by running `go env GOBIN`. If the command returns an empty value, run `go env GOPATH` to find the installation directory.
-
-2.  Install cluster-director-mcp as a `gemini-cli` extension:
-
+    
     Check if you see the cluster-director-mcp directory
     ```sh
     ls -latr | grep cluster-director-mcp
