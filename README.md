@@ -27,7 +27,7 @@ Enable MCP-compatible AI agents to interact with Cluster Director.
     ```sh
     npm install -g @google/gemini-cli to update
     ```
-    
+
     ```sh
     exit
     ```
@@ -47,7 +47,13 @@ Enable MCP-compatible AI agents to interact with Cluster Director.
 
     ```sh
     cd cluster-director-mcp
+    ```
+    
+    ```sh
     go build -o cluster-director-mcp .
+    ```
+
+    ```sh
     ./cluster-director-mcp install gemini-cli
     ```
 
