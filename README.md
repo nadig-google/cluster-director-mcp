@@ -82,6 +82,11 @@ Enable MCP-compatible AI agents to interact with Cluster Director.
   gcloud config set project hpc-toolkit-dev
   ```
 
+6. Start gemini-cli
+  ```sh
+  gemini
+  ```
+
 ## Tools
 
 - `create_cluster`: Creates AI optimized Clusters.
