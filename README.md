@@ -15,10 +15,20 @@ Enable MCP-compatible AI agents to interact with Cluster Director.
     If the above command does not work, install it as root using the following four commands
     ```sh
     sudo -s
-    export PATH=$PATH:/opt/gradle/bin:/opt/maven/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin:/usr/local/node_packages/node_modules/.bin:/usr/local/rvm/bin:/home/nadig/.gems/bin:/usr/local/rvm/bin:/home/nadig/gopath/bin:/google/gopath/bin:/google/flutter/bin:/usr/local/nvm/versions/node/v22.17.1/bin
+    ```
 
+    ```sh
+    export PATH=$PATH:/opt/gradle/bin:/opt/maven/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin:/usr/local/node_packages/node_modules/.bin:/usr/local/rvm/bin:/home/nadig/.gems/bin:/usr/local/rvm/bin:/home/nadig/gopath/bin:/google/gopath/bin:/google/flutter/bin:/usr/local/nvm/versions/node/v22.17.1/bin
+    ```
+
+    ```sh
     npm install -g @google/gemini-cli
+    ```
+    ```sh
     npm install -g @google/gemini-cli to update
+    ```
+    
+    ```sh
     exit
     ```
 
