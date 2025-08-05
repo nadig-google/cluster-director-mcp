@@ -45,10 +45,15 @@ Enable MCP-compatible AI agents to interact with Cluster Director.
 
 2.  Install it as a `gemini-cli` extension:
 
+    Check if you see the cluster-director-mcp directory
+    ```sh
+    ls -latr | grep cluster-director-mcp
+    ```
+    
     ```sh
     cd cluster-director-mcp
     ```
-    
+
     ```sh
     go build -o cluster-director-mcp .
     ```
