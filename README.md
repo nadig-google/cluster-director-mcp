@@ -71,12 +71,13 @@ Enable MCP-compatible AI agents to interact with Cluster Director.
    } ' >> ~/.gemini/settings.json
   ```
 
-5. Authenticate yourself (run command and follow instructions - this step requires opening a new browser window)
-   ```sh
+
+4. Authenticate yourself (run command and follow instructions - this step requires opening a new browser window)
+  ```sh
    gcloud auth application-default login
-   ```
+  ```
   
-6. Set the default project
+5. Set the default project
   ```sh
   gcloud config set project hpc-toolkit-dev
   ```
