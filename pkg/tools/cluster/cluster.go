@@ -50,6 +50,9 @@ func Install(s *server.MCPServer, c *config.Config) {
 	// sets authToken
 	getGCloudToken()
 
+	// HCS does NOT support ALL regions and has an API to return the list of
+	// regions it supports. Use HCS' API instead of GCE API to get ALL regions
+	// because the GCE API is an overkill
 	getAllRegionsAndZonesSupportedByHCS(c.GetDefaultProjectID())
 
 	listClustersTool := mcp.NewTool("list_clusters",

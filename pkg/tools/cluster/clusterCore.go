@@ -4,13 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"log"
 	"os/exec"
 	"strings"
-	"time"
-
-	"net/http"
 
 	"github.com/nadig-google/cluster-director-mcp/pkg/genericCore"
 	compute "google.golang.org/api/compute/v0.alpha"
@@ -21,8 +16,9 @@ var regions []*compute.Region
 var regions2Zones = make(map[string][]string)
 
 type regionsAndClustersStruct struct {
-	region  string
-	cluster string
+	region      string
+	clusterName string
+	clusterData Cluster
 }
 
 var regionAndClusterArr []regionsAndClustersStruct
@@ -32,6 +28,13 @@ var regionAndClusterArr []regionsAndClustersStruct
 // *********************************
 // gcloud compute ssh cluster0vk-login-001 --project=hpc-toolkit-dev --zone=us-central1-c --tunnel-through-iap --command 'sinfo'
 var lastClusterInfo Cluster
+
+// The root struct that holds the list of clusters.
+type ClustersResponse struct {
+	Clusters []Cluster `json:"clusters"`
+}
+
+var region2Clusters map[string][]Cluster
 
 // Cluster defines the top-level structure of the JSON object.
 type Cluster struct {
@@ -172,7 +175,7 @@ func getGCloudToken() bool {
 }
 
 func getAllZonesInRegion(region string, projectID string, ctx context.Context, computeService *compute.Service) []string {
-	zonesList := []string{}
+	var zonesList []string
 
 	// The filter string tells the API to return only zones whose region name
 	// matches the one we specified.
@@ -185,7 +188,7 @@ func getAllZonesInRegion(region string, projectID string, ctx context.Context, c
 	if err := req1.Pages(ctx, func(page *compute.ZoneList) error {
 		for _, zone := range page.Items {
 			genericCore.WriteToLog(zone.Name)
-			append(zonesList, zone.Name)
+			zonesList = append(zonesList, zone.Name)
 		}
 		return nil
 	}); err != nil {
@@ -216,6 +219,57 @@ func getAllRegionsAndZonesSupportedByHCS(projectID string) bool {
 	// -H "Authorization: Bearer $(gcloud auth print-access-token)" \
 	// https://hypercomputecluster.googleapis.com/v1alpha/projects/cloud-hypercomp-dev/locations/us-central1/clusters
 	url := "https://hypercomputecluster.googleapis.com/v1alpha/projects/" + projectID + "/locations/"
+	/*
+		$ curl     -H "Content-Type:application/json"     -H "Authorization: Bearer $(gcloud auth print-access-token)"     https://hypercomputecluster.googleapis.com/v1alpha/projects/hpc-toolkit-dev/locations/
+		{
+		"locations": [
+		{
+		"name": "projects/hpc-toolkit-dev/locations/asia-southeast1",
+		"locationId": "asia-southeast1"
+		},
+		{
+		"name": "projects/hpc-toolkit-dev/locations/europe-north1",
+		"locationId": "europe-north1"
+		},
+		{
+		"name": "projects/hpc-toolkit-dev/locations/europe-west1",
+		"locationId": "europe-west1"
+		},
+		{
+		"name": "projects/hpc-toolkit-dev/locations/europe-west4",
+		"locationId": "europe-west4"
+		},
+		{
+		"name": "projects/hpc-toolkit-dev/locations/us-central1",
+		"locationId": "us-central1"
+		},
+		{
+		"name": "projects/hpc-toolkit-dev/locations/us-east1",
+		"locationId": "us-east1"
+		},
+		{
+		"name": "projects/hpc-toolkit-dev/locations/us-east4",
+		"locationId": "us-east4"
+		},
+		{
+		"name": "projects/hpc-toolkit-dev/locations/us-east5",
+		"locationId": "us-east5"
+		},
+		{
+		"name": "projects/hpc-toolkit-dev/locations/us-east7",
+		"locationId": "us-east7"
+		},
+		{
+		"name": "projects/hpc-toolkit-dev/locations/us-west1",
+		"locationId": "us-west1"
+		},
+		{
+		"name": "projects/hpc-toolkit-dev/locations/us-west4",
+		"locationId": "us-west4"
+		}
+		]
+		}
+	*/
 
 	bodyJson, success := genericCore.QueryURLAndGetResult(authToken, url)
 	if !success {
@@ -245,41 +299,6 @@ func getAllRegionsAndZonesSupportedByHCS(projectID string) bool {
 	return true
 }
 
-// Older obsolete code - calls GCE to get every region and spawns a thread per region
-// to get all the zones in parallel
-// HCS has an API that returns the list of regions it supports so this function is not
-// needed, but nevertheless it could be useful later
-func getAllRegionsAndZones(projectID string) bool {
-	ctx := context.Background()
-	computeService, err := compute.NewService(ctx)
-	if err != nil {
-		genericCore.WriteToLog(fmt.Sprintf("Error getting compute service for project %s : %v", projectID, err))
-		return false
-	}
-
-	// Call the Regions.List method to get the list of regions.
-	req := computeService.Regions.List(projectID)
-	// The API returns a paginated list. The 'Do' method handles pagination automatically.
-	if err := req.Pages(ctx, func(page *compute.RegionList) error {
-		regions = append(regions, page.Items...)
-		return nil
-	}); err != nil {
-		genericCore.WriteToLog(fmt.Sprintf("Error getting regions for project %s : %v", projectID, err))
-		return false
-	}
-
-	genericCore.WriteToLog(fmt.Sprintf("Regions available in project %s:\n", projectID))
-	for _, region := range regions {
-		// Call the Zones.List method with the project ID and the filter.
-		//req = computeService.Zones.List(projectID).Filter(filter)
-		genericCore.WriteToLog(fmt.Sprintf("Zones available in project %s in %s are:", projectID, region.Name))
-		getAllZonesInRegion(region.Name, projectID, ctx, computeService)
-
-	}
-
-	return true
-}
-
 // Cluster flow
 // The moment we have project (either during install or first call to MCP), do the following
 // - Get clusters in the project
@@ -289,81 +308,489 @@ func getAllRegionsAndZones(projectID string) bool {
 
 func getClustersInAllRegions(projectID string) {
 	for region := range regions2Zones {
-		cluster, success := getClusterInRegionIfExists(region, projectID)
-		if success {
-			append(regionAndClusterArr(region2Cluster[region], cluster)
-		}
+		getClustersInRegionIfExists(region, projectID)
 	}
 }
 
-func getClusterInRegionIfExists(region string, projectID string) (string, bool) {
-	defer wg.Done()
-
+func getClustersInRegionIfExists(region string, projectID string) {
 	// Equivalent CURL command:
 	// curl \
 	// -H "Content-Type:application/json" \
 	// -H "Authorization: Bearer $(gcloud auth print-access-token)" \
 	// https://hypercomputecluster.googleapis.com/v1alpha/projects/cloud-hypercomp-dev/locations/us-central1/clusters
 	url := "https://hypercomputecluster.googleapis.com/v1alpha/projects/" + projectID + "/locations/" + region + "/clusters"
-
+	/*
+	   	$ curl \
+	       -H "Content-Type:application/json" \
+	       -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+	       https://hypercomputecluster.googleapis.com/v1alpha/projects/hpc-toolkit-dev/locations/us-central1/clusters
+	   {
+	     "clusters": [
+	       {
+	         "name": "projects/hpc-toolkit-dev/locations/us-central1/clusters/quadrant",
+	         "createTime": "2025-07-29T18:11:10.750875543Z",
+	         "updateTime": "2025-07-29T18:26:11.691043831Z",
+	         "networks": [
+	           {
+	             "network": "projects/hpc-toolkit-dev/global/networks/quadrant-net",
+	             "initializeParams": {
+	               "network": "projects/hpc-toolkit-dev/global/networks/quadrant-net"
+	             },
+	             "subnetwork": "projects/hpc-toolkit-dev/global/networks/quadrant-net"
+	           }
+	         ],
+	         "storages": [
+	           {
+	             "storage": "projects/hpc-toolkit-dev/locations/us-central1-c/instances/quadrant-fs",
+	             "initializeParams": {
+	               "filestore": {
+	                 "fileShares": [
+	                   {
+	                     "capacityGb": "1024",
+	                     "fileShare": "nfsshare"
+	                   }
+	                 ],
+	                 "tier": "TIER_ZONAL",
+	                 "filestore": "projects/hpc-toolkit-dev/locations/us-central1-c/instances/quadrant-fs",
+	                 "protocol": "PROTOCOL_NFSV3"
+	               }
+	             },
+	             "id": "home"
+	           },
+	           {
+	             "storage": "projects/hpc-toolkit-dev/locations/us-central1-c/instances/quadrant-fs-1",
+	             "initializeParams": {
+	               "filestore": {
+	                 "fileShares": [
+	                   {
+	                     "capacityGb": "1024",
+	                     "fileShare": "nfsshare"
+	                   }
+	                 ],
+	                 "tier": "TIER_ZONAL",
+	                 "filestore": "projects/hpc-toolkit-dev/locations/us-central1-c/instances/quadrant-fs-1",
+	                 "protocol": "PROTOCOL_NFSV3"
+	               }
+	             },
+	             "id": "shared0"
+	           }
+	         ],
+	         "compute": {
+	           "resourceRequests": [
+	             {
+	               "id": "quadrant-rr1",
+	               "zone": "us-central1-c",
+	               "machineType": "n2-standard-2",
+	               "guestAccelerators": [
+	                 {}
+	               ],
+	               "disks": [
+	                 {
+	                   "type": "pd-balanced",
+	                   "sizeGb": "100",
+	                   "boot": true,
+	                   "sourceImage": "projects/hpc-toolkit-dev/global/images/family/common-slurm-image"
+	                 }
+	               ],
+	               "provisioningModel": "PROVISIONING_MODEL_STANDARD"
+	             }
+	           ]
+	         },
+	         "orchestrator": {
+	           "slurm": {
+	             "nodeSets": [
+	               {
+	                 "id": "nodeset1",
+	                 "resourceRequestId": "quadrant-rr1",
+	                 "storageConfigs": [
+	                   {
+	                     "id": "home",
+	                     "localMount": "/home"
+	                   },
+	                   {
+	                     "id": "shared0",
+	                     "localMount": "/shared0"
+	                   }
+	                 ],
+	                 "staticNodeCount": "1",
+	                 "allowAutomaticUpdate": true,
+	                 "enableOsLogin": true
+	               }
+	             ],
+	             "partitions": [
+	               {
+	                 "id": "part1",
+	                 "nodeSetIds": [
+	                   "nodeset1"
+	                 ]
+	               }
+	             ],
+	             "defaultPartition": "part1",
+	             "loginNodes": {
+	               "machineType": "n2-standard-2",
+	               "zone": "us-central1-c",
+	               "count": "1",
+	               "disks": [
+	                 {
+	                   "type": "pd-balanced",
+	                   "sizeGb": "100",
+	                   "boot": true,
+	                   "sourceImage": "projects/hpc-toolkit-dev/global/images/family/common-slurm-image"
+	                 }
+	               ],
+	               "enableOsLogin": true,
+	               "enablePublicIps": true,
+	               "instances": [
+	                 {
+	                   "instance": "projects/hpc-toolkit-dev/zones/us-central1-c/instances/quadrant-login-001"
+	                 }
+	               ],
+	               "storageConfigs": [
+	                 {
+	                   "id": "home",
+	                   "localMount": "/home"
+	                 },
+	                 {
+	                   "id": "shared0",
+	                   "localMount": "/shared0"
+	                 }
+	               ]
+	             }
+	           }
+	         },
+	         "reconciling": false
+	       },
+	       {
+	         "name": "projects/hpc-toolkit-dev/locations/us-central1/clusters/clusterum7",
+	         "createTime": "2025-07-28T17:18:00.818807445Z",
+	         "updateTime": "2025-07-28T17:33:08.231509624Z",
+	         "networks": [
+	           {
+	             "network": "projects/hpc-toolkit-dev/global/networks/clusterum7-net",
+	             "initializeParams": {
+	               "network": "projects/hpc-toolkit-dev/global/networks/clusterum7-net"
+	             },
+	             "subnetwork": "projects/hpc-toolkit-dev/global/networks/clusterum7-net"
+	           }
+	         ],
+	         "storages": [
+	           {
+	             "storage": "projects/hpc-toolkit-dev/locations/us-central1-c/instances/clusterum7-fs",
+	             "initializeParams": {
+	               "filestore": {
+	                 "fileShares": [
+	                   {
+	                     "capacityGb": "1024",
+	                     "fileShare": "nfsshare"
+	                   }
+	                 ],
+	                 "tier": "TIER_ZONAL",
+	                 "filestore": "projects/hpc-toolkit-dev/locations/us-central1-c/instances/clusterum7-fs",
+	                 "protocol": "PROTOCOL_NFSV3"
+	               }
+	             },
+	             "id": "home"
+	           }
+	         ],
+	         "compute": {
+	           "resourceRequests": [
+	             {
+	               "id": "cjdcluster1",
+	               "zone": "us-central1-c",
+	               "machineType": "n2-standard-2",
+	               "guestAccelerators": [
+	                 {}
+	               ],
+	               "disks": [
+	                 {
+	                   "type": "pd-balanced",
+	                   "sizeGb": "100",
+	                   "boot": true,
+	                   "sourceImage": "projects/hpc-toolkit-dev/global/images/family/common-slurm-image"
+	                 }
+	               ],
+	               "provisioningModel": "PROVISIONING_MODEL_STANDARD"
+	             }
+	           ]
+	         },
+	         "orchestrator": {
+	           "slurm": {
+	             "nodeSets": [
+	               {
+	                 "id": "nodeset1",
+	                 "resourceRequestId": "cjdcluster1",
+	                 "storageConfigs": [
+	                   {
+	                     "id": "home",
+	                     "localMount": "/home"
+	                   }
+	                 ],
+	                 "staticNodeCount": "6",
+	                 "enableOsLogin": true
+	               }
+	             ],
+	             "partitions": [
+	               {
+	                 "id": "part1",
+	                 "nodeSetIds": [
+	                   "nodeset1"
+	                 ]
+	               }
+	             ],
+	             "defaultPartition": "part1",
+	             "loginNodes": {
+	               "machineType": "n2-standard-2",
+	               "zone": "us-central1-c",
+	               "count": "1",
+	               "disks": [
+	                 {
+	                   "type": "pd-balanced",
+	                   "sizeGb": "100",
+	                   "boot": true,
+	                   "sourceImage": "projects/hpc-toolkit-dev/global/images/family/common-slurm-image"
+	                 }
+	               ],
+	               "enableOsLogin": true,
+	               "enablePublicIps": true,
+	               "instances": [
+	                 {
+	                   "instance": "projects/hpc-toolkit-dev/zones/us-central1-c/instances/clusterum7-login-001"
+	                 }
+	               ],
+	               "storageConfigs": [
+	                 {
+	                   "id": "home",
+	                   "localMount": "/home"
+	                 }
+	               ]
+	             }
+	           }
+	         },
+	         "reconciling": false
+	       },
+	       {
+	         "name": "projects/hpc-toolkit-dev/locations/us-central1/clusters/cluster0vk",
+	         "createTime": "2025-07-30T08:26:31.572323371Z",
+	         "updateTime": "2025-07-30T08:40:05.631214829Z",
+	         "networks": [
+	           {
+	             "network": "projects/hpc-toolkit-dev/global/networks/cluster0vk-net",
+	             "initializeParams": {
+	               "network": "projects/hpc-toolkit-dev/global/networks/cluster0vk-net"
+	             },
+	             "subnetwork": "projects/hpc-toolkit-dev/global/networks/cluster0vk-net"
+	           }
+	         ],
+	         "storages": [
+	           {
+	             "storage": "projects/hpc-toolkit-dev/locations/us-central1-c/instances/cluster0vk-fs",
+	             "initializeParams": {
+	               "filestore": {
+	                 "fileShares": [
+	                   {
+	                     "capacityGb": "1024",
+	                     "fileShare": "nfsshare"
+	                   }
+	                 ],
+	                 "tier": "TIER_ZONAL",
+	                 "filestore": "projects/hpc-toolkit-dev/locations/us-central1-c/instances/cluster0vk-fs",
+	                 "protocol": "PROTOCOL_NFSV3"
+	               }
+	             },
+	             "id": "home"
+	           }
+	         ],
+	         "compute": {
+	           "resourceRequests": [
+	             {
+	               "id": "cluster0vk-rr1",
+	               "zone": "us-central1-c",
+	               "machineType": "n2-standard-2",
+	               "guestAccelerators": [
+	                 {}
+	               ],
+	               "disks": [
+	                 {
+	                   "type": "pd-balanced",
+	                   "sizeGb": "100",
+	                   "boot": true,
+	                   "sourceImage": "projects/hpc-toolkit-dev/global/images/family/common-slurm-image"
+	                 }
+	               ],
+	               "provisioningModel": "PROVISIONING_MODEL_STANDARD"
+	             }
+	           ]
+	         },
+	         "orchestrator": {
+	           "slurm": {
+	             "nodeSets": [
+	               {
+	                 "id": "nodeset1",
+	                 "resourceRequestId": "cluster0vk-rr1",
+	                 "storageConfigs": [
+	                   {
+	                     "id": "home",
+	                     "localMount": "/home"
+	                   }
+	                 ],
+	                 "staticNodeCount": "2",
+	                 "enableOsLogin": true
+	               }
+	             ],
+	             "partitions": [
+	               {
+	                 "id": "part1",
+	                 "nodeSetIds": [
+	                   "nodeset1"
+	                 ]
+	               }
+	             ],
+	             "defaultPartition": "part1",
+	             "loginNodes": {
+	               "machineType": "n2-standard-2",
+	               "zone": "us-central1-c",
+	               "count": "1",
+	               "disks": [
+	                 {
+	                   "type": "pd-balanced",
+	                   "sizeGb": "100",
+	                   "boot": true,
+	                   "sourceImage": "projects/hpc-toolkit-dev/global/images/family/common-slurm-image"
+	                 }
+	               ],
+	               "enableOsLogin": true,
+	               "enablePublicIps": true,
+	               "instances": [
+	                 {
+	                   "instance": "projects/hpc-toolkit-dev/zones/us-central1-c/instances/cluster0vk-login-001"
+	                 }
+	               ],
+	               "storageConfigs": [
+	                 {
+	                   "id": "home",
+	                   "localMount": "/home"
+	                 }
+	               ]
+	             }
+	           }
+	         },
+	         "reconciling": false
+	       },
+	       {
+	         "name": "projects/hpc-toolkit-dev/locations/us-central1/clusters/harsclus",
+	         "createTime": "2025-06-18T20:13:05.824451278Z",
+	         "updateTime": "2025-06-18T20:25:48.817877731Z",
+	         "networks": [
+	           {
+	             "network": "projects/hpc-toolkit-dev/global/networks/harsclus-net",
+	             "initializeParams": {
+	               "network": "projects/hpc-toolkit-dev/global/networks/harsclus-net"
+	             },
+	             "subnetwork": "projects/hpc-toolkit-dev/global/networks/harsclus-net"
+	           }
+	         ],
+	         "storages": [
+	           {
+	             "storage": "projects/hpc-toolkit-dev/locations/us-central1-c/instances/harsclus-fs",
+	             "initializeParams": {
+	               "filestore": {
+	                 "fileShares": [
+	                   {
+	                     "capacityGb": "1024",
+	                     "fileShare": "nfsshare"
+	                   }
+	                 ],
+	                 "tier": "TIER_ZONAL",
+	                 "filestore": "projects/hpc-toolkit-dev/locations/us-central1-c/instances/harsclus-fs",
+	                 "protocol": "PROTOCOL_NFSV3"
+	               }
+	             },
+	             "id": "home"
+	           }
+	         ],
+	         "compute": {
+	           "resourceRequests": [
+	             {
+	               "id": "harsclus-rr1",
+	               "zone": "us-central1-c",
+	               "machineType": "n2-standard-2",
+	               "guestAccelerators": [
+	                 {}
+	               ],
+	               "provisioningModel": "PROVISIONING_MODEL_STANDARD"
+	             }
+	           ]
+	         },
+	         "orchestrator": {
+	           "slurm": {
+	             "nodeSets": [
+	               {
+	                 "id": "nodeset1",
+	                 "resourceRequestId": "harsclus-rr1",
+	                 "storageConfigs": [
+	                   {
+	                     "id": "home",
+	                     "localMount": "/home"
+	                   }
+	                 ],
+	                 "staticNodeCount": "2",
+	                 "allowAutomaticUpdate": true,
+	                 "enableOsLogin": true
+	               }
+	             ],
+	             "partitions": [
+	               {
+	                 "id": "part1",
+	                 "nodeSetIds": [
+	                   "nodeset1"
+	                 ]
+	               }
+	             ],
+	             "defaultPartition": "part1",
+	             "loginNodes": {
+	               "machineType": "n2-standard-2",
+	               "zone": "us-central1-c",
+	               "count": "1",
+	               "disks": [
+	                 {
+	                   "type": "pd-balanced",
+	                   "sizeGb": "100",
+	                   "boot": true
+	                 }
+	               ],
+	               "enableOsLogin": true,
+	               "enablePublicIps": true,
+	               "instances": [
+	                 {
+	                   "instance": "projects/hpc-toolkit-dev/zones/us-central1-c/instances/harsclus-login-001"
+	                 }
+	               ]
+	             }
+	           }
+	         },
+	         "reconciling": false
+	       }
+	     ]
+	   }
+	*/
 	//print("URL: " + url)
-	genericCore.WriteToLog("URL : " + url)
+	genericCore.WriteToLog(fmt.Sprintf("Getting clusters in region %s URL : %s", region, url))
 
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		log.Fatalf("Failed to create HTTP request: %v", err)
-	}
+	// Remove all previous data about clusters in this region
+	delete(region2Clusters, region)
 
-	// 4. Set the headers, just like the -H flags in curl.
-	req.Header.Set("Content-Type", "application/json")
-	// Construct the Authorization header value.
-	authHeader := fmt.Sprintf("Bearer %s", authToken)
-	req.Header.Set("Authorization", authHeader)
-
-	// --- Printing the Request Object ---
-	genericCore.WriteToLog("\n--- Request Details ---")
-	genericCore.WriteToLog("Method: " + req.Method + "\n")
-	genericCore.WriteToLog("Headers:")
-	for key, values := range req.Header {
-		genericCore.WriteToLog(fmt.Sprintf("  %s: %s\n", key, strings.Join(values, ", ")))
-	}
-	genericCore.WriteToLog("-----------------------")
-
-	// 5. Create an HTTP client and send the request.
-	client := &http.Client{
-		Timeout: 30 * time.Second, // Set a reasonable timeout.
-	}
-
-	genericCore.WriteToLog("\nSending GET request to: " + url + "\n")
-	resp, err := client.Do(req)
-	if err != nil {
-		genericCore.WriteToLog("Error making HTTP request")
-		return "", false
-	}
-	// Defer the closing of the response body.
-	// This is important to free up network resources.
-	defer resp.Body.Close()
-
-	// Check the status code
-	if resp.StatusCode != http.StatusOK {
-		genericCore.WriteToLog("http.Get() did NOT return StatusOK")
-		return "", false
-	}
-
-	// Read the response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		genericCore.WriteToLog("io.ReadAll(body) returned error. Returning ERROR")
-		return "", false
-	}
-
-	bodyString := string(body)
-	genericCore.WriteToLog("Body : " + string(body))
-	if strings.Contains(bodyString, "storages") {
+	bodyString, success := genericCore.QueryURLAndGetResult(authToken, url)
+	genericCore.WriteToLog("Body : " + string(bodyString))
+	if success && strings.Contains(bodyString, "storages") {
 		// If the body has "storages" than that means there is a cluster
-		return bodyString, true
+		var parsedClusterData ClustersResponse
+		err := json.Unmarshal([]byte(bodyString), &parsedClusterData)
+		if err != nil {
+
+			genericCore.WriteToLog(fmt.Sprintf("error unmarshalling JSON: %v", err))
+			region2Clusters[region] = parsedClusterData.Clusters
+		}
 	} else {
 		genericCore.WriteToLog("The response body does not contain the substring 'storages'.")
-		return string(body), false
 	}
 }
