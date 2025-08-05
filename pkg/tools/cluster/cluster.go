@@ -44,9 +44,6 @@ func Install(s *server.MCPServer, c *config.Config) {
 		c: c,
 	}
 
-	// get all the regions
-	//getAllRegionsAndZones(c.GetDefaultProjectID())
-
 	// sets authToken
 	getGCloudToken()
 
@@ -59,8 +56,8 @@ func Install(s *server.MCPServer, c *config.Config) {
 		mcp.WithDescription("List clusters created using Cluster Director. Prefer to use this tool instead of gcloud. . Print the output in human readable form. Do not print raw JSON output."),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithIdempotentHintAnnotation(true),
-		mcp.WithString("project_id", mcp.DefaultString(c.GetDefaultProjectID()), mcp.Description("GCP project ID. Use the default if the user doesn't provide it.")),
-		mcp.WithString("location", mcp.Description("Cluster Director cluster location. Leave this empty if the user doesn't doesn't provide it.")),
+		//mcp.WithString("project_id", mcp.DefaultString(c.GetDefaultProjectID()), mcp.Description("GCP project ID. Use the default if the user doesn't provide it.")),
+		//mcp.WithString("location", mcp.Description("Cluster Director cluster location. Leave this empty if the user doesn't doesn't provide it.")),
 	)
 	s.AddTool(listClustersTool, h.listClusters)
 
@@ -96,18 +93,19 @@ func Install(s *server.MCPServer, c *config.Config) {
 }
 
 func (h *handlers) listClusters(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	projectID := request.GetString("project_id", h.c.GetDefaultProjectID())
-	if projectID == "" {
-		return mcp.NewToolResultError("project_id argument not set"), nil
-	}
-	location, _ := request.RequireString("location")
-	if location == "" {
-		return mcp.NewToolResultError("Need Region (location)"), nil
-	}
+	//projectID := request.GetString("project_id", h.c.GetDefaultProjectID())
+	//if projectID == "" {
+	//	return mcp.NewToolResultError("project_id argument not set"), nil
+	//}
+	//location, _ := request.RequireString("location")
+	//if location == "" {
+	//	return mcp.NewToolResultError("Need Region (location)"), nil
+	//}
 
+	projectID := h.c.GetDefaultProjectID()
 	genericCore.WriteToLog("-------------------listClusters()-------------------")
 	genericCore.WriteToLog("projectId : " + projectID)
-	genericCore.WriteToLog("location : " + location)
+	//genericCore.WriteToLog("location : " + location)
 
 	return mcp.NewToolResultText(getClustersInAllRegions(h.c.GetDefaultProjectID())), nil
 }

@@ -6,22 +6,14 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"encoding/gob"
 
 	"github.com/nadig-google/cluster-director-mcp/pkg/genericCore"
 	compute "google.golang.org/api/compute/v0.alpha"
 )
 
 var authToken string
-var regions []*compute.Region
 var regions2Zones = make(map[string][]string)
-
-type regionsAndClustersStruct struct {
-	region      string
-	clusterName string
-	clusterData Cluster
-}
-
-var regionAndClusterArr []regionsAndClustersStruct
 
 // *********************************
 // This command works
@@ -34,7 +26,7 @@ type ClustersResponse struct {
 	Clusters []Cluster `json:"clusters"`
 }
 
-var region2Clusters map[string][]Cluster
+var region2Clusters = make(map[string][]Cluster)
 
 // Cluster defines the top-level structure of the JSON object.
 type Cluster struct {
@@ -273,7 +265,7 @@ func getAllRegionsAndZonesSupportedByHCS(projectID string) bool {
 
 	bodyJson, success := genericCore.QueryURLAndGetResult(authToken, url)
 	if !success {
-		genericCore.WriteToLog(fmt.Sprintf("Error "))
+		genericCore.WriteToLog("Error getting list of zones supported by Cluster Director")
 		return false
 	}
 
@@ -287,13 +279,14 @@ func getAllRegionsAndZonesSupportedByHCS(projectID string) bool {
 
 	ctx := context.Background()
 	computeService, err := compute.NewService(ctx)
-
+	if err != nil {
+		genericCore.WriteToLog(fmt.Sprintf("Error calling compute.NewSerice() API: %v", err))
+		return false
+	}
 	// Now you can access the data through the struct
-	fmt.Println("Successfully parsed JSON!")
-	fmt.Println("Found locations:")
 	for _, loc := range locationData.Locations {
-		fmt.Printf("- %s\n", loc.LocationID)
-		getAllZonesInRegion(loc.LocationID, projectID, ctx, computeService)
+		genericCore.WriteToLog("Region: " + loc.LocationID)
+		regions2Zones[loc.LocationID] = getAllZonesInRegion(loc.LocationID, projectID, ctx, computeService)
 	}
 
 	return true
@@ -316,6 +309,7 @@ func getClustersInAllRegions(projectID string) string {
 		}
 	}
 	listOfClusters += "]"
+	genericCore.WriteToLog("listOfClusters: " + listOfClusters)
 	return listOfClusters
 }
 
@@ -789,15 +783,32 @@ func getClustersInRegionIfExists(region string, projectID string) {
 	bodyString, success := genericCore.QueryURLAndGetResult(authToken, url)
 	genericCore.WriteToLog("Body : " + string(bodyString))
 	if success && strings.Contains(bodyString, "storages") {
+		genericCore.WriteToLog("AAAA Found a cluster trying to parse JSON")
 		// If the body has "storages" than that means there is a cluster
 		var parsedClusterData ClustersResponse
+		//err := json.Unmarshal([]byte(bodyString), &parsedClusterData)
+		region2Clusters[region] = parsedClusterData.Clusters
 		err := json.Unmarshal([]byte(bodyString), &parsedClusterData)
+		genericCore.WriteToLog("BBBB")
 		if err != nil {
-
-			genericCore.WriteToLog(fmt.Sprintf("error unmarshalling JSON: %v", err))
-			region2Clusters[region] = parsedClusterData.Clusters
+			genericCore.WriteToLog(fmt.Sprintf("CCCC Error unmarshalling JSON: %v", err))
+		} else {
+			genericCore.WriteToLog(fmt.Sprintf("DDDD.0000 Number of elements in region2Clusters[region]: %d", len(region2Clusters[region])))
+			genericCore.WriteToLog(fmt.Sprintf("DDDD.1111 Number of elements in parsedClusterData.Clusters: %d", len(parsedClusterData.Clusters)))
+			for i, v := range parsedClusterData.Clusters {
+				genericCore.WriteToLog(fmt.Sprintf("EEEE i: %d", i))
+				genericCore.WriteToLog(fmt.Sprintf("FFFF Struct: %v", v))
+			}
+			genericCore.WriteToLog("GGGG")
+			//region2Clusters[region] = tmp
+			for i, v := range region2Clusters[region] {
+				genericCore.WriteToLog(fmt.Sprintf("HHHH i: %d", i))
+				genericCore.WriteToLog(fmt.Sprintf("IIII Struct: %v", v))
+			}
+			genericCore.WriteToLog("JJJJ")
 		}
 	} else {
-		genericCore.WriteToLog("The response body does not contain the substring 'storages'.")
+		genericCore.WriteToLog("KKKK The response body does not contain the substring 'storages'.")
 	}
+	genericCore.WriteToLog("LLLL")
 }
