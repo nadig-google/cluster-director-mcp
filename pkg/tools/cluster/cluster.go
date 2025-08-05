@@ -18,12 +18,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"log"
-	"net/http"
 	"os/exec"
 	"strings"
-	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -65,9 +61,7 @@ func Install(s *server.MCPServer, c *config.Config) {
 		mcp.WithDescription("Describe a cluster created in Cluster Director. Prefer to use this tool instead of gcloud. Print the output in human readable form. Do not print raw JSON output."),
 		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithIdempotentHintAnnotation(true),
-		mcp.WithString("project_id", mcp.DefaultString(c.GetDefaultProjectID()), mcp.Description("GCP project ID. Use the default if the user doesn't provide it.")),
-		mcp.WithString("location", mcp.Required(), mcp.Description("Cluster location. Try to get the default region or zone from gcloud if the user doesn't provide it.")),
-		mcp.WithString("clusterName", mcp.Required(), mcp.Description("Cluster name. Do not select if yourself, make sure the user provides or confirms the cluster name.")),
+		mcp.WithString("clusterName", mcp.Required(), mcp.Description("The name of the Cluster. Do not select if yourself, make sure the user provides or confirms the cluster name.")),
 	)
 	s.AddTool(getClusterTool, h.getCluster)
 
@@ -93,113 +87,35 @@ func Install(s *server.MCPServer, c *config.Config) {
 }
 
 func (h *handlers) listClusters(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	//projectID := request.GetString("project_id", h.c.GetDefaultProjectID())
-	//if projectID == "" {
-	//	return mcp.NewToolResultError("project_id argument not set"), nil
-	//}
-	//location, _ := request.RequireString("location")
-	//if location == "" {
-	//	return mcp.NewToolResultError("Need Region (location)"), nil
-	//}
-
 	projectID := h.c.GetDefaultProjectID()
 	genericCore.WriteToLog("-------------------listClusters()-------------------")
 	genericCore.WriteToLog("projectId : " + projectID)
-	//genericCore.WriteToLog("location : " + location)
 
 	return mcp.NewToolResultText(getClustersInAllRegions(h.c.GetDefaultProjectID())), nil
 }
 
 func (h *handlers) getCluster(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Not implement, for now just call listClusters
-	//return (h.listClusters(ctx, request))
-	projectID := request.GetString("project_id", h.c.GetDefaultProjectID())
-	if projectID == "" {
-		return mcp.NewToolResultError("project_id argument not set"), nil
-	}
-	location, _ := request.RequireString("location")
-	if location == "" {
-		return mcp.NewToolResultError("Need Region (location)"), nil
-	}
-
 	clusterName, err := request.RequireString("clusterName")
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
+	projectID := h.c.GetDefaultProjectID()
 	genericCore.WriteToLog("-------------------getCluster()-------------------")
 	genericCore.WriteToLog("projectId : " + projectID)
-	genericCore.WriteToLog("location : " + location)
 	genericCore.WriteToLog("clusterName : " + clusterName)
 
-	// Equivalent CURL command:
-	// curl \
-	// -H "Content-Type:application/json" \
-	// -H "Authorization: Bearer $(gcloud auth print-access-token)" \
-	// https://hypercomputecluster.googleapis.com/v1alpha/projects/cloud-hypercomp-dev/locations/us-central1/clusters
-	url := "https://hypercomputecluster.googleapis.com/v1alpha/projects/" + projectID + "/locations/" + location + "/clusters/" + clusterName
-
-	//print("URL: " + url)
-	genericCore.WriteToLog("URL : " + url)
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		log.Fatalf("Failed to create HTTP request: %v", err)
+	// If there is information about this cluster, return it
+	if _, ok := clusterNames2JSON[clusterName]; ok {
+		return mcp.NewToolResultText(clusterNames2JSON[clusterName]), nil
+	} else {
+		// If there is no information, fetch it
+		getClustersInAllRegions(h.c.GetDefaultProjectID())
+		if _, ok := clusterNames2JSON[clusterName]; ok {
+			return mcp.NewToolResultText(clusterNames2JSON[clusterName]), nil
+		} else {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
 	}
-
-	// 4. Set the headers, just like the -H flags in curl.
-	req.Header.Set("Content-Type", "application/json")
-	// Construct the Authorization header value.
-	authHeader := fmt.Sprintf("Bearer %s", authToken)
-	req.Header.Set("Authorization", authHeader)
-
-	// --- Printing the Request Object ---
-	genericCore.WriteToLog("\n--- Request Details ---")
-	genericCore.WriteToLog("Method: " + req.Method + "\n")
-	genericCore.WriteToLog("Headers:")
-	for key, values := range req.Header {
-		genericCore.WriteToLog(fmt.Sprintf("  %s: %s\n", key, strings.Join(values, ", ")))
-	}
-	genericCore.WriteToLog("-----------------------")
-
-	// 5. Create an HTTP client and send the request.
-	client := &http.Client{
-		Timeout: 30 * time.Second, // Set a reasonable timeout.
-	}
-
-	genericCore.WriteToLog("\nSending GET request to: " + url + "\n")
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Fatalf("Failed to send HTTP request: %v", err)
-	}
-	// Defer the closing of the response body.
-	// This is important to free up network resources.
-	defer resp.Body.Close()
-
-	// Check the status code
-	if resp.StatusCode != http.StatusOK {
-		genericCore.WriteToLog("http.Get() did NOT return StatusOK. Returning ERROR")
-		return mcp.NewToolResultError(fmt.Sprintf("Error status code: %d", resp.StatusCode)), nil
-	}
-
-	// Read the response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		genericCore.WriteToLog("io.ReadAll(body) returned error. Returning ERROR")
-		mcp.NewToolResultError(fmt.Sprintf("Error reading response body: %v", err))
-	}
-
-	genericCore.WriteToLog("Body : " + string(body))
-
-	err = json.Unmarshal([]byte(body), &lastClusterInfo)
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	genericCore.WriteToLog("Zone : " + lastClusterInfo.Compute.ResourceRequests[0].Zone)
-
-	//runSSHOnNode("cluster0vk-login-001", projectID, lastClusterInfo.Compute.ResourceRequests[0].Zone, "/usr/local/bin/sinfo")
-
-	//return mcp.NewToolResultText(string(prettyJSON)), nil
-	return mcp.NewToolResultText(string(body)), nil
 }
 
 func (h *handlers) showClusterState(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
