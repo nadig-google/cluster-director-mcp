@@ -57,7 +57,7 @@ Enable MCP-compatible AI agents to interact with Cluster Director.
    ```
 
    If ~/.gemini/settings.json does NOT exist, then run the following commands
-   ```sh
+```sh
    mkdir ~/.gemini
    echo '
    {
@@ -69,7 +69,7 @@ Enable MCP-compatible AI agents to interact with Cluster Director.
         }
     }
    } ' >> ~/.gemini/settings.json
-  ```
+```
 
 
 4. Authenticate yourself (run command and follow instructions - this step requires opening a new browser window)
