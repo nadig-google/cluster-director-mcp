@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strings"
-	"encoding/gob"
 
 	"github.com/nadig-google/cluster-director-mcp/pkg/genericCore"
 	compute "google.golang.org/api/compute/v0.alpha"
@@ -26,7 +26,9 @@ type ClustersResponse struct {
 	Clusters []Cluster `json:"clusters"`
 }
 
-var region2Clusters = make(map[string][]Cluster)
+// var region2Clusters = make(map[string][]Cluster)
+var region2ClusterNames = make(map[string][]string)
+var clusterNames2JSON = make(map[string]string)
 
 // Cluster defines the top-level structure of the JSON object.
 type Cluster struct {
@@ -303,11 +305,11 @@ func getClustersInAllRegions(projectID string) string {
 	var listOfClusters string = "["
 	for region, _ := range regions2Zones {
 		getClustersInRegionIfExists(region, projectID)
-		var clusterList []Cluster = region2Clusters[region]
-		for _, clusterStruct := range clusterList {
-			listOfClusters += string("\"" + clusterStruct.Name + "\"")
+		for _, clusterName := range region2ClusterNames[region] {
+			listOfClusters += string("\"" + clusterName + "\", ")
 		}
 	}
+	listOfClusters = strings.TrimSuffix(listOfClusters, ", ")
 	listOfClusters += "]"
 	genericCore.WriteToLog("listOfClusters: " + listOfClusters)
 	return listOfClusters
@@ -778,7 +780,9 @@ func getClustersInRegionIfExists(region string, projectID string) {
 	genericCore.WriteToLog(fmt.Sprintf("Getting clusters in region %s URL : %s", region, url))
 
 	// Remove all previous data about clusters in this region
-	delete(region2Clusters, region)
+	//delete(region2Clusters, region)
+	//delete(region2ClusterNames, region)
+	region2ClusterNames[region] = []string{}
 
 	bodyString, success := genericCore.QueryURLAndGetResult(authToken, url)
 	genericCore.WriteToLog("Body : " + string(bodyString))
@@ -787,23 +791,27 @@ func getClustersInRegionIfExists(region string, projectID string) {
 		// If the body has "storages" than that means there is a cluster
 		var parsedClusterData ClustersResponse
 		//err := json.Unmarshal([]byte(bodyString), &parsedClusterData)
-		region2Clusters[region] = parsedClusterData.Clusters
+		//region2Clusters[region] = parsedClusterData.Clusters
 		err := json.Unmarshal([]byte(bodyString), &parsedClusterData)
 		genericCore.WriteToLog("BBBB")
 		if err != nil {
 			genericCore.WriteToLog(fmt.Sprintf("CCCC Error unmarshalling JSON: %v", err))
 		} else {
-			genericCore.WriteToLog(fmt.Sprintf("DDDD.0000 Number of elements in region2Clusters[region]: %d", len(region2Clusters[region])))
+			//genericCore.WriteToLog(fmt.Sprintf("DDDD.0000 Number of elements in region2Clusters[region]: %d", len(region2Clusters[region])))
 			genericCore.WriteToLog(fmt.Sprintf("DDDD.1111 Number of elements in parsedClusterData.Clusters: %d", len(parsedClusterData.Clusters)))
 			for i, v := range parsedClusterData.Clusters {
+				clusterName := filepath.Base(parsedClusterData.Clusters[i].Name)
 				genericCore.WriteToLog(fmt.Sprintf("EEEE i: %d", i))
 				genericCore.WriteToLog(fmt.Sprintf("FFFF Struct: %v", v))
+				region2ClusterNames[region] = append(region2ClusterNames[region], clusterName)
+				clusterNames2JSON[clusterName] = string(bodyString)
 			}
+
 			genericCore.WriteToLog("GGGG")
-			//region2Clusters[region] = tmp
-			for i, v := range region2Clusters[region] {
+
+			for i, v := range region2ClusterNames[region] {
 				genericCore.WriteToLog(fmt.Sprintf("HHHH i: %d", i))
-				genericCore.WriteToLog(fmt.Sprintf("IIII Struct: %v", v))
+				genericCore.WriteToLog(fmt.Sprintf("IIII Struct: %s", v))
 			}
 			genericCore.WriteToLog("JJJJ")
 		}
