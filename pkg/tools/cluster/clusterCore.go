@@ -306,10 +306,17 @@ func getAllRegionsAndZonesSupportedByHCS(projectID string) bool {
 //   - Get zone, region and any other meta data and store it in a cache to be used as default later
 //   -
 
-func getClustersInAllRegions(projectID string) {
-	for region := range regions2Zones {
+func getClustersInAllRegions(projectID string) string {
+	var listOfClusters string = "["
+	for region, _ := range regions2Zones {
 		getClustersInRegionIfExists(region, projectID)
+		var clusterList []Cluster = region2Clusters[region]
+		for _, clusterStruct := range clusterList {
+			listOfClusters += string("\"" + clusterStruct.Name + "\"")
+		}
 	}
+	listOfClusters += "]"
+	return listOfClusters
 }
 
 func getClustersInRegionIfExists(region string, projectID string) {

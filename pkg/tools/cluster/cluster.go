@@ -109,10 +109,7 @@ func (h *handlers) listClusters(ctx context.Context, request mcp.CallToolRequest
 	genericCore.WriteToLog("projectId : " + projectID)
 	genericCore.WriteToLog("location : " + location)
 
-	getClustersInAllRegions(h.c.GetDefaultProjectID())
-
-	// hack fix this
-	return mcp.NewToolResultText(string("hell")), nil
+	return mcp.NewToolResultText(getClustersInAllRegions(h.c.GetDefaultProjectID())), nil
 }
 
 func (h *handlers) getCluster(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {

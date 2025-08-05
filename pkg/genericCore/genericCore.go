@@ -118,7 +118,10 @@ func QueryURLAndGetResult(authToken string, url string) (string, bool) {
 	WriteToLog("Method: " + req.Method + "\n")
 	WriteToLog("Headers:")
 	for key, values := range req.Header {
-		WriteToLog(fmt.Sprintf("  %s: %s\n", key, strings.Join(values, ", ")))
+		// Dont write the Authorization token
+		if key != "Authorization" {
+			WriteToLog(fmt.Sprintf("  %s: %s\n", key, strings.Join(values, ", ")))
+		}
 	}
 	WriteToLog("-----------------------")
 
