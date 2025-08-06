@@ -5,26 +5,22 @@ Use Cluster Director and deploy AI/ML clusters with GPUs using spoken english.
 # Installation
 
 1.  Check out code and other assets from github:
-
     ```sh
     git clone https://github.com/nadig-google/cluster-director-mcp.git
     cd cluster-director-mcp
     ```
 
-2.  Install cluster-director-mcp as a `gemini-cli` extension:
-
-    The dependencies for `cluster-director-mcp` including gemini-cli will be installed on your cloud shell.
-
+2.  Install cluster-director-mcp and dependencies as `gemini-cli` extensions:
     ```sh
     ./install.sh
     ```   
 
-3. Authenticate yourself (run command and follow instructions - this step requires opening a new browser window)
+3. Authenticate yourself (run command - follow instructions - requires opening browser):
   ```sh
    gcloud auth application-default login
   ```
   
-4. Set the default project
+4. Set the default GCP project in which your clusters exist or will be created:
   ```sh
   gcloud config set project <project-name>
   ```
