@@ -8,6 +8,7 @@ Link to gemini-cli github page: https://github.com/google-gemini/gemini-cli
 
 1.  Check out code and other assets from github:
     ```sh
+    cd ~
     git clone https://github.com/nadig-google/cluster-director-mcp.git
     cd cluster-director-mcp
     ```
