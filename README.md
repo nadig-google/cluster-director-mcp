@@ -2,6 +2,8 @@
 
 Use Cluster Director and deploy AI/ML clusters with GPUs using spoken english. More information about Cluster Director can be found here: https://cloud.google.com/ai-hypercomputer/docs/cluster-director
 
+Link to gemini-cli github page: https://github.com/google-gemini/gemini-cli
+
 # Installation
 
 1.  Check out code and other assets from github:
@@ -37,6 +39,19 @@ Use Cluster Director and deploy AI/ML clusters with GPUs using spoken english. M
   - QA Assistant: What VM-types does Cluster Director support
   - QA Assistant: Does Cluster Director handle topology automatically during cluster creation
   - QA Assistant: What came first? The chicken or the egg
+  ```
+
+7. Some helpful gemini-cli commands
+  ```sh
+  /tools - shows the list of tools installed
+  ```
+
+  ```sh
+  /extensions - shows the list of tools installed
+  ```
+
+  ```sh
+  /quit - exit gemini-cli
   ```
 
 ## QA Assistant
