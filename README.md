@@ -1,13 +1,10 @@
-# cluster-director-mcp
-Gemini-CLI compatible MCP Server for the Cluster Director product from Google Cloud
-
 # Cluster Director MCP Server
 
-Enable MCP-compatible AI agents to interact with Cluster Director.
+Use Cluster Director and deploy AI/ML clusters with GPUs using spoken english.
 
 # Installation
 
-1.  Check out from github:
+1.  Check out code and other assets from github:
 
     ```sh
     git clone https://github.com/nadig-google/cluster-director-mcp.git
@@ -18,7 +15,6 @@ Enable MCP-compatible AI agents to interact with Cluster Director.
 
     The dependencies for `cluster-director-mcp` including gemini-cli will be installed on your cloud shell.
 
-    Check if you see the cluster-director-mcp directory
     ```sh
     ./install.sh
     ```   
@@ -30,7 +26,7 @@ Enable MCP-compatible AI agents to interact with Cluster Director.
   
 4. Set the default project
   ```sh
-  gcloud config set project <your-gcp-project-name>
+  gcloud config set project <project-name>
   ```
 
 5. Start gemini-cli
@@ -42,10 +38,11 @@ Enable MCP-compatible AI agents to interact with Cluster Director.
 
 - `list_clusters`: List your clusters created using Cluster Director.
 - `get_cluster`: Get detailed about a single Cluster.
+- More to come soon....
 
 ## Context 
 
-In addition to the tools above, a lot of value is provided through the bundled context instructions.
+In addition to the above tools, this AI Assistant has additional fine-tuned and detailed information about Cluster Director.
 
 
 
