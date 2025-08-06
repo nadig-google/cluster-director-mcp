@@ -60,7 +60,7 @@ Link to gemini-cli github page: https://github.com/google-gemini/gemini-cli
   ```
 
   ```sh
-  # Use with caution
+  # Use with caution - this permanently deletes the exisitng cluster-director-mcp folder
   rm -r cluster-director-mcp
   ```
 
