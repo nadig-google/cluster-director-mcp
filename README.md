@@ -30,6 +30,12 @@ Use Cluster Director and deploy AI/ML clusters with GPUs using spoken english.
   gemini
   ```
 
+6. Ask questions
+  ```sh
+  "Show me the clusters in my GCP project in Cluster Director"
+  "Show me information about my cluster"
+  ```
+
 ## Tools
 
 - `list_clusters`: List your clusters created using Cluster Director.
