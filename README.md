@@ -30,7 +30,7 @@ Enable MCP-compatible AI agents to interact with Cluster Director.
   
 4. Set the default project
   ```sh
-  gcloud config set project hpc-toolkit-dev
+  gcloud config set project <your-gcp-project-name>
   ```
 
 5. Start gemini-cli
