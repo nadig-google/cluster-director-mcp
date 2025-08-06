@@ -30,7 +30,7 @@ Use Cluster Director and deploy AI/ML clusters with GPUs using spoken english. M
   gemini
   ```
 
-6. Ask questions (QA Assistant) / prompt the AI agent do something (take action):
+6. Ask questions (QA Assistant) / prompt the AI agent do something (take action - Agentic Assistant):
   ```sh
   - Agentic prompt: Show me the clusters in my GCP project in Cluster Director
   - Agentic prompt: Show me information about my cluster
@@ -39,15 +39,15 @@ Use Cluster Director and deploy AI/ML clusters with GPUs using spoken english. M
   - QA Assistant: What came first? The chicken or the egg
   ```
 
-## Tools
+## QA Assistant
+
+This AI Assistant has a rich set of curated documents about Cluster Director to enable it to answer questions.
+
+## Agentic Assistant (Current list of tools it can run)
 
 - `list_clusters`: List your clusters created using Cluster Director.
 - `get_cluster`: Get detailed about a single Cluster.
 - More to come soon....
-
-## Context 
-
-In addition to the above tools, this AI Assistant has additional fine-tuned and detailed information about Cluster Director.
 
 ## Feedback
 We'd love to hear from you. Please email nadig at-symbol google dot com 
