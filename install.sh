@@ -15,6 +15,15 @@ go build -o cluster-director-mcp .
 ./cluster-director-mcp install gemini-cli
 echo '
 {
+  "contextFileName": "GEMINI.md",
+  "description": "Enable MCP-compatible AI agents to interact with Cluster Director.",
+  "mcpServers": {
+    "cluster-director-mcp": {
+      "command": "/home/nadig/cluster-director-mcp/cluster-director-mcp"
+    }
+  },
+  "name": "cluster-director-mcp",
+  "version": "0.0.1",
   "selectedAuthType": "cloud-shell",
   "theme": "Default",
   "mcpServers": {
@@ -22,5 +31,5 @@ echo '
        "httpUrl": "https://mcp.context7.com/mcp"
       }
   }
-} ' >> .gemini/extensions/cluster-director-mcp/gemini-extension.json
+}' >> .gemini/extensions/cluster-director-mcp/gemini-extension.json
 
