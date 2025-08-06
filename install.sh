@@ -1,6 +1,5 @@
 #!/bin/sh
 
-
 sudo -s <<EOF
 
 echo "--- Installing gemin-cli ---"
@@ -11,25 +10,5 @@ export PATH=$PATH:/opt/gradle/bin:/opt/maven/bin:/usr/local/sbin:/usr/local/bin:
 echo "--- All tasks complete ---"
 EOF
 
-go build -o cluster-director-mcp .
-./cluster-director-mcp install gemini-cli
-echo '
-{
-  "contextFileName": "GEMINI.md",
-  "description": "Enable MCP-compatible AI agents to interact with Cluster Director.",
-  "mcpServers": {
-    "cluster-director-mcp": {
-      "command": "/home/nadig/cluster-director-mcp/cluster-director-mcp"
-    }
-  },
-  "name": "cluster-director-mcp",
-  "version": "0.0.1",
-  "selectedAuthType": "cloud-shell",
-  "theme": "Default",
-  "mcpServers": {
-     "context7": {
-       "httpUrl": "https://mcp.context7.com/mcp"
-      }
-  }
-}' >> .gemini/extensions/cluster-director-mcp/gemini-extension.json
-
+make clean
+make

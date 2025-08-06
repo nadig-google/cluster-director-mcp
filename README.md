@@ -7,101 +7,33 @@ Enable MCP-compatible AI agents to interact with Cluster Director.
 
 # Installation
 
-0. Install gemini-cli on your Cloud Shell Editor
-    ```sh
-    npm install -g @google/gemini-cli
-    ```
-
-    If the above command does not work, install it as root using the following four commands
-    ```sh
-    sudo -s
-    ```
-
-    ```sh
-    export PATH=$PATH:/opt/gradle/bin:/opt/maven/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin:/usr/local/node_packages/node_modules/.bin:/usr/local/rvm/bin:/home/nadig/.gems/bin:/usr/local/rvm/bin:/home/nadig/gopath/bin:/google/gopath/bin:/google/flutter/bin:/usr/local/nvm/versions/node/v22.17.1/bin
-    ```
-
-    ```sh
-    npm install -g @google/gemini-cli
-    ```
-    ```sh
-    npm install -g @google/gemini-cli to update
-    ```
-
-    ```sh
-    exit
-    ```
-
-
 1.  Check out from github:
 
     ```sh
     git clone https://github.com/nadig-google/cluster-director-mcp.git
+    cd cluster-director-mcp
     ```
 
 2.  Install cluster-director-mcp as a `gemini-cli` extension:
 
-    The `cluster-director-mcp` binary and extension will be installed in the current directory.
+    The dependencies for `cluster-director-mcp` including gemini-cli will be installed on your cloud shell.
 
     Check if you see the cluster-director-mcp directory
     ```sh
-    ls -latr | grep cluster-director-mcp
-    ```
-    
-    ```sh
-    cd cluster-director-mcp
-    ```
+    ./install.sh
+    ```   
 
-    ```sh
-    go build -o cluster-director-mcp .
-    ```
-
-    ```sh
-    ./cluster-director-mcp install gemini-cli
-    ```
-
-    This will create a manifest file in `./.gemini/extensions/cluster-director-mcp` that points to the installed `cluster-director-mcp` binary.
-
-3. Add an MCP extension to get detailed information on cluster director
-
-   if ~/.gemini/settings.json already exists 
-
-   ```sh
-   echo '  ,
-   "mcpServers": {
-     "context7": {
-     "httpUrl": "https://mcp.context7.com/mcp"
-    }
-   }' >> ~/.gemini/settings.json
-   ```
-
-   If ~/.gemini/settings.json does NOT exist, then run the following commands
-```sh
-   mkdir ~/.gemini
-   echo '
-   {
-    "selectedAuthType": "cloud-shell",
-    "theme": "Default",
-    "mcpServers": {
-       "context7": {
-         "httpUrl": "https://mcp.context7.com/mcp"
-        }
-    }
-   } ' >> ~/.gemini/settings.json
-```
-
-
-4. Authenticate yourself (run command and follow instructions - this step requires opening a new browser window)
+3. Authenticate yourself (run command and follow instructions - this step requires opening a new browser window)
   ```sh
    gcloud auth application-default login
   ```
   
-5. Set the default project
+4. Set the default project
   ```sh
   gcloud config set project hpc-toolkit-dev
   ```
 
-6. Start gemini-cli
+5. Start gemini-cli
   ```sh
   gemini
   ```
