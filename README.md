@@ -1,6 +1,6 @@
 # Cluster Director MCP Server
 
-Use Cluster Director and deploy AI/ML clusters with GPUs using spoken english.
+Use Cluster Director and deploy AI/ML clusters with GPUs using spoken english. More information about Cluster Director can be found here: https://cloud.google.com/ai-hypercomputer/docs/cluster-director
 
 # Installation
 
