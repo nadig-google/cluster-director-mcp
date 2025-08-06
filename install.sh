@@ -23,8 +23,7 @@ EOF
 
 go build -o cluster-director-mcp .
 ./cluster-director-mcp install gemini-cli
-   mkdir ~/.gemini
-   echo '
+echo '
    {
     "selectedAuthType": "cloud-shell",
     "theme": "Default",
