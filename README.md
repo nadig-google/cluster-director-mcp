@@ -36,7 +36,7 @@ Use Cluster Director and deploy AI/ML clusters with GPUs using spoken english.
   - Agentic prompt: Show me information about my cluster
   - QA Assistant: What VM-types does Cluster Director support
   - QA Assistant: Does Cluster Director handle topology automatically during cluster creation
-  - What came first? The chicken or the egg
+  - QA Assistant: What came first? The chicken or the egg
   ```
 
 ## Tools
