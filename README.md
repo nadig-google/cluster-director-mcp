@@ -40,7 +40,6 @@ Enable MCP-compatible AI agents to interact with Cluster Director.
 
 ## Tools
 
-- `create_cluster`: Creates AI optimized Clusters.
 - `list_clusters`: List your clusters created using Cluster Director.
 - `get_cluster`: Get detailed about a single Cluster.
 
