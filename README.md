@@ -30,10 +30,13 @@ Use Cluster Director and deploy AI/ML clusters with GPUs using spoken english.
   gemini
   ```
 
-6. Ask questions
+6. Ask questions (QA Assistant) / prompt the AI agent do something (take action):
   ```sh
-  "Show me the clusters in my GCP project in Cluster Director"
-  "Show me information about my cluster"
+  - Agentic prompt: Show me the clusters in my GCP project in Cluster Director
+  - Agentic prompt: Show me information about my cluster
+  - QA Assistant: What VM-types does Cluster Director support
+  - QA Assistant: Does Cluster Director handle topology automatically during cluster creation
+  - What came first? The chicken or the egg
   ```
 
 ## Tools
