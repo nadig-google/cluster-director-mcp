@@ -54,6 +54,20 @@ Link to gemini-cli github page: https://github.com/google-gemini/gemini-cli
   /quit - exit gemini-cli
   ```
 
+8. To remove cluster-director-mcp and do a fresh install. Note this is will permanently delete all information from the previous installation
+  ```sh
+  cd ~
+  ```
+
+  ```sh
+  # Use with caution
+  rm -r cluster-director-mcp
+  ```
+
+  ```sh
+  Go to step 1) in this document
+  ```
+
 ## QA Assistant
 
 This AI Assistant has a rich set of curated documents about Cluster Director to enable it to answer questions.
